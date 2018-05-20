@@ -9,7 +9,8 @@ c = ff_factory.B4(3)
 d = ff_factory.B4(6)
 
 f = Polynomial([a, b, c, d])
-x = Psi(ff_factory.B4, 4, ff_factory.B4(0))
+FFT = Psi(ff_factory.B4, 4, ff_factory.B4(0))
 
-print(x.apply(f))
-    
+evals = FFT.transform(f)
+print(evals)
+print(FFT.inverse(evals, f.msb))

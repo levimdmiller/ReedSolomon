@@ -43,66 +43,56 @@ class Psi:
         # s_k(x) = s_{k-1}(x) * s_{k-1}(x - v_{k-1})
         return self.eval_s(k-1, omega) * self.eval_s(k-1, omega - self.basis[k-1])
         
-    def apply(self, poly):
+    def transform(self, poly):
         """
-        \psi_{\beta}(0,0) \leftarrow FFT_h(\Delta^0_0,\beta,0,0)
-        h = deg poly
+        \psi_{\beta}(f)
         """
-        return self.apply_helper(poly.coeffs, poly.msb, self.shift)
-        # return self.psi_helper(poly.coeffs, self.shift, 0, 0, poly.msb, basis.Delta(poly))
+        return self._transform_helper(poly.coeffs, poly.msb, self.shift)
 
-    def apply_helper(self, coeffs, k, beta):
+    def _transform_helper(self, coeffs, k, beta):
         """
         Input: f(x) = (f_0, ..., f_{2^k - 1}), k = bin log of size, \beta = shift
-        Output: 2^k evalusations, d_i = f(\omega + \beta)
+        Output: 2^k evaluations, d_i = f(\omega + \beta)
         """
         if k == 0:
             return [coeffs[0]] # return f_0
         exp = 2**(k-1)
-        recursive0 = []
-        recursive1 = []
+        D0 = [] # input for first recursive call
+        D1 = [] # input for second recursive call
         for i in range(exp):
-            g0 = coeffs[i] + self.precomputed[k-1] * coeffs[i + exp]
-            g1 = g0 + coeffs[i + exp]
-            recursive0.append(g0)
-            recursive1.append(g1)
+            g0 = coeffs[i] + self.precomputed[k-1] * coeffs[i + exp] # 'even' subset calculations
+            g1 = g0 + coeffs[i + exp] # 'odd' subset calculations
+            D0.append(g0)
+            D1.append(g1)
 
-        result = self.apply_helper(recursive0, k-1, beta)
-        result.extend(self.apply_helper(recursive1, k-1, beta))
-        return result
+        # call recursively on subproblems
+        result = self._transform_helper(D0, k-1, beta) # d'_0, ..., d'_{2^{k-1}-1}
+        result.extend(self._transform_helper(D1, k-1, beta)) # d'_{2^{k-1}}, ..., d'_{2^k}
+        return result # d'_0, ..., d'_{2^k}
 
-        
-    # def psi_helper(self, delta_r_i, beta, i, r, k, delta):
-    #     """
-    #     Input: FFT_h( \Delta^r_i ,\beta,i,r):  Delta^r_i is the recursion of the input polynomial, 
-    #     h = 2^k denotes the size of the transform, and \beta\in F_{2^m}
-    #     Output: \psi_{\beta}(i,r)={ r(\omega)|\omega\in V^k_i + \beta}
-    #     V^k_j = span{v_j, \dots, v_{k-1}}
-    #     """
-    #     if i == k: # base case
-    #         return delta_r_i # delta_r_i = {d_r}
-    #     even = self.psi_helper(delta.coeffs(r, i+1), beta, i + 1, r, k - 1, delta) # 'even' parity subset
-    #     odd = self.psi_helper(delta.coeffs(r+2**i, i+1), beta, i + 1, r + 2**i, k - 1, delta) # 'odd' parity subset
-    #     resultset = []
-    #     for j in range(2**(k - i - 1)):
-    #         s = 1 # s poly
-    #         result_even = even[j] + s*odd[j]
-    #         result_odd  = result_even + odd[j]
-    #         resultset.append(result_even) 
-    #         resultset.append(result_odd)
-    #     return resultset # check ordering
-        
+    def inverse(self, evals, k):
+        """
+        \psi^{-1}_{\beta}(0,0) \leftarrow FFT_h(\Delta^0_0,\beta,0,0)
+        k = binary log of degree of polynomial.
+        """
+        return self.inverse_helper(evals, k, self.shift)
 
-# class Delta:
-#     """
-#      Delta^r_i ={d_{j·2^i+r}|j =0,...,2^{k−i} −1)}.
-#     """
-#     def __init__(self, poly):
-#         self.poly = poly
-
-#     def coeffs(self, r, i):
-#         """
-#         coefficients of the midway point.
-#         """
-#         k = poly.msb
-#         return [poly.coeffs[j*(2**i) + r] for j in range(2**(k - i)-1)]
+    def inverse_helper(self, evals, k, beta):
+        """
+        Input: (f(\omega_0), ..., f(\omega_{2^k-1}), k = bin log of size, \beta = shift
+        Output: 2^k evaluations, d_i = f(\omega + \beta)
+        """
+        if k == 0:
+            return [evals[0]] # return f_0
+        exp = 2**(k-1)
+        D0 = self.inverse_helper(evals[:exp], k-1, beta) # g0_0, ..., g0_{2^{k-1}-1}
+        D1 = self.inverse_helper(evals[exp:], k-1, self.basis[k-1] + beta) # g1_0, ..., g1_{2^{k-1}-1}
+        first_half = [] # can replace with an array in non-python impl.
+        second_half = []
+        for i in range(exp):
+            d_odd = D0[i] + D1[i] # f_{i + 2^{k-1}}
+            d_even = D0[i] + self.precomputed[k-1] * d_odd # f_i
+            first_half.append(d_odd)
+            second_half.append(d_even)
+        second_half.extend(first_half)
+        return second_half
