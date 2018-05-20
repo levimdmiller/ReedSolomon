@@ -1,3 +1,4 @@
+import numpy as np
 
 
 class Psi:
@@ -43,11 +44,11 @@ class Psi:
         # s_k(x) = s_{k-1}(x) * s_{k-1}(x - v_{k-1})
         return self.eval_s(k-1, omega) * self.eval_s(k-1, omega - self.basis[k-1])
         
-    def transform(self, poly):
+    def transform(self, poly, k):
         """
         \psi_{\beta}(f)
         """
-        return self._transform_helper(poly.coeffs, poly.msb, self.shift)
+        return self._transform_helper(poly, k, self.shift)
 
     def _transform_helper(self, coeffs, k, beta):
         """
@@ -55,19 +56,17 @@ class Psi:
         Output: 2^k evaluations, d_i = f(\omega + \beta)
         """
         if k == 0:
-            return [coeffs[0]] # return f_0
+            return np.array([coeffs[0]]) # return f_0
         exp = 2**(k-1)
-        D0 = [] # input for first recursive call
-        D1 = [] # input for second recursive call
+        D0 = np.empty(exp, dtype=self.field) # input for first recursive call
+        D1 = np.empty(exp, dtype=self.field) # input for second recursive call
         for i in range(exp):
-            g0 = coeffs[i] + self.precomputed[k-1] * coeffs[i + exp] # 'even' subset calculations
-            g1 = g0 + coeffs[i + exp] # 'odd' subset calculations
-            D0.append(g0)
-            D1.append(g1)
+            D0[i] = g0 = coeffs[i] + self.precomputed[k-1] * coeffs[i + exp] # 'even' subset calculations
+            D1[i] = g0 + coeffs[i + exp] # 'odd' subset calculations
 
         # call recursively on subproblems
         result = self._transform_helper(D0, k-1, beta) # d'_0, ..., d'_{2^{k-1}-1}
-        result.extend(self._transform_helper(D1, k-1, beta)) # d'_{2^{k-1}}, ..., d'_{2^k}
+        result = np.append(result, self._transform_helper(D1, k-1, beta)) # d'_{2^{k-1}}, ..., d'_{2^k}
         return result # d'_0, ..., d'_{2^k}
 
     def inverse(self, evals, k):
@@ -83,16 +82,12 @@ class Psi:
         Output: 2^k evaluations, d_i = f(\omega + \beta)
         """
         if k == 0:
-            return [evals[0]] # return f_0
+            return np.array([evals[0]]) # return f_0
         exp = 2**(k-1)
         D0 = self.inverse_helper(evals[:exp], k-1, beta) # g0_0, ..., g0_{2^{k-1}-1}
         D1 = self.inverse_helper(evals[exp:], k-1, self.basis[k-1] + beta) # g1_0, ..., g1_{2^{k-1}-1}
-        first_half = [] # can replace with an array in non-python impl.
-        second_half = []
+        result = np.empty(2**k, dtype=self.field)
         for i in range(exp):
-            d_odd = D0[i] + D1[i] # f_{i + 2^{k-1}}
-            d_even = D0[i] + self.precomputed[k-1] * d_odd # f_i
-            first_half.append(d_odd)
-            second_half.append(d_even)
-        second_half.extend(first_half)
-        return second_half
+            result[i + exp] = d_odd = D0[i] + D1[i] # f_{i + 2^{k-1}}
+            result[i] = d_even = D0[i] + self.precomputed[k-1] * d_odd # f_i
+        return result
