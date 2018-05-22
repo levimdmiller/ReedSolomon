@@ -1,2 +1,2 @@
 # ReedSolomon
-g_{2^{k-1}-1}
+
