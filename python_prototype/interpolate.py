@@ -114,5 +114,5 @@ class Psi:
         result = np.empty(2**k, dtype=self.field)
         for i in range(exp):
             result[i + exp] = d_odd = D0[i] + D1[i] # f_{i + 2^{k-1}}
-            result[i] = d_even = D0[i] + self.precomputed[k-1] * d_odd # f_i
+            result[i] = d_even = D0[i] + self.eval_s(k-1, beta) / self.eval_s(k-1, self.basis[k-1]) * d_odd # f_i
         return result
