@@ -8,10 +8,16 @@ class Psi:
     def __init__(self, field, degree, shift):
         self.field = field
         self.shift = shift
+        self.degree = degree
         self.basis = self.find_basis(degree) # v_0, ..., v_{m-1}
         self.precomputed = [
             self.eval_s(j, shift) / self.eval_s(j, self.basis[j])
             for j in range(degree)
+        ]
+        # calculate normalization constants
+        self.norm_consts = [
+            self.eval_p(i)
+            for i in range(2**degree)
         ]
 
     def find_basis(self, degree):
@@ -35,6 +41,17 @@ class Psi:
         # e.g., elem 3 = 011 = 1 + x = b0 + b1
         return self.field(i)
 
+    def eval_p(self, i):
+        num = i
+        bit = 0 # current position in binary expansion
+        result = self.field(1)
+        while num > 0:
+            if num % 2 == 1: # if current bit has a 1
+                result *= self.eval_s(bit, self.basis[bit]) # s_j(v_j)
+            bit += 1
+            num //= 2
+        return result
+    
     def eval_s(self, k, omega):
         """
         uses the recursive definition
@@ -44,10 +61,14 @@ class Psi:
         # s_k(x) = s_{k-1}(x) * s_{k-1}(x - v_{k-1})
         return self.eval_s(k-1, omega) * self.eval_s(k-1, omega - self.basis[k-1])
         
-    def transform(self, poly, k):
+    def transform(self, poly, k, normalized=False):
         """
         \psi_{\beta}(f)
         """
+        poly = np.copy(poly) # don't modify original.
+        if not normalized:
+            for i in range(len(poly)):
+                poly[i] *= self.norm_consts[i]
         return self._transform_helper(poly, k, self.shift)
 
     def _transform_helper(self, coeffs, k, beta):
@@ -56,25 +77,29 @@ class Psi:
         Output: 2^k evaluations, d_i = f(\omega + \beta)
         """
         if k == 0:
-            return np.array([coeffs[0]]) # return f_0
+            return np.array([coeffs[0]]) # return d_0
         exp = 2**(k-1)
         D0 = np.empty(exp, dtype=self.field) # input for first recursive call
         D1 = np.empty(exp, dtype=self.field) # input for second recursive call
         for i in range(exp):
-            D0[i] = g0 = coeffs[i] + self.precomputed[k-1] * coeffs[i + exp] # 'even' subset calculations
-            D1[i] = g0 + coeffs[i + exp] # 'odd' subset calculations
+            D0[i] = coeffs[i] + self.eval_s(k-1, beta) / self.eval_s(k-1, self.basis[k-1]) * coeffs[i + exp] # 'even' subset calculations
+            D1[i] = D0[i] + coeffs[i + exp] # 'odd' subset calculations
 
         # call recursively on subproblems
         result = self._transform_helper(D0, k-1, beta) # d'_0, ..., d'_{2^{k-1}-1}
-        result = np.append(result, self._transform_helper(D1, k-1, beta)) # d'_{2^{k-1}}, ..., d'_{2^k}
+        result = np.append(result, self._transform_helper(D1, k-1, self.basis[k-1] + beta)) # d'_{2^{k-1}}, ..., d'_{2^k}
         return result # d'_0, ..., d'_{2^k}
 
-    def inverse(self, evals, k):
+    def inverse(self, evals, k, normalized=False):
         """
         \psi^{-1}_{\beta}(0,0) \leftarrow FFT_h(\Delta^0_0,\beta,0,0)
         k = binary log of degree of polynomial.
         """
-        return self.inverse_helper(evals, k, self.shift)
+        result = self.inverse_helper(evals, k, self.shift)
+        if not normalized:
+            for i in range(len(result)):
+                result[i] /= self.norm_consts[i]
+        return result
 
     def inverse_helper(self, evals, k, beta):
         """
