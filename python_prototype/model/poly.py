@@ -46,12 +46,10 @@ class Polynomial:
         # pad lists so they have correct size.
         self_evals = Polynomial.psi.transform(np.append(self.coeffs, [0] * (2**res_msb - self.deg)), res_msb)
         other_evals = other.psi.transform(np.append(other.coeffs, [0] * (2**res_msb - other.deg)), res_msb)
-        from  ff_factory import B4
-        return Polynomial([B4(13), B4(2), B4(2), B4(4), B4(1)])
         return Polynomial(Polynomial.psi.inverse(np.multiply(self_evals, other_evals), res_msb))
 
     def __truediv__(self, other):
-        if self.deg <= other.deg:
+        if self.deg >= other.deg:
             raise ValueError("Divisor must be smaller than Numerator.")
         if other.deg <= 0:
             raise ValueError("Divisor must have nonzero degree.")

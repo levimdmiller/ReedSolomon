@@ -38,7 +38,7 @@ class Psi:
     def omega(self, i):
         # works because of how the basis is chosen, and because
         # of how the table is indexed.
-        # e.g., elem 3 = 011 = 1 + x = b0 + b1
+        # e.g., elem 3 = 011 = 1 + alpha = b0 + b1
         return self.field(i)
 
     def eval_p(self, i):

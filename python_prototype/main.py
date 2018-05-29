@@ -18,10 +18,10 @@ g = np.zeros(5, dtype=B4)
 g[4] = B4(15)
 g = Polynomial(g)
 
-print((f * g).coeffs)
+print('f, g', f, g)
+print('f * g', (f * g).coeffs)
 print(~B4(6))
 
-print(f, g)
 print(f + g)
 
 def conv(omega):
@@ -55,3 +55,7 @@ def mul(*args):
 
 print('expected', [eval(i, *[x / p for x,p in zip(f.coeffs, FFT.norm_consts[:len(f.coeffs)])]) for i in range(len(f.coeffs))])
 print('expected', [eval(i, *f.coeffs) for i in range(8)])
+
+
+print(f,g)
+# print(f / g)

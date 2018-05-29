@@ -67,6 +67,6 @@ def test_add():
     assert(f + g == Polynomial([B4(0), B4(0), B4(0), B4(0)]))
 
 def test_mul():
-    f = Polynomial([B4(15), B4(12), B4(3), B4(6)])
-    g = Polynomial([B4(2), B4(7)])
-    assert(f*g == Polynomial([B4(13), B4(2), B4(2), B4(4), B4(1)]))
+    f = Polynomial(convert([15, 12, 3, 6]))
+    g = Polynomial(convert([0, 0, 0, 0, 15]))
+    assert(f*g == Polynomial(convert([0, 0, 0, 0, 10, 8, 2, 4])))
